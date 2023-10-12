@@ -2,10 +2,10 @@ import mysql from 'mysql2';
 
 import { Sequelize } from 'sequelize';
 
-const sequelize = new Sequelize("mysql-db", "82usrqbe976ncbox4fry", "pscale_pw_JN9ydTVi9BwVQhDO07wEBvOHdJ7k13o2KVLdIy2A9mo",
+const sequelize = new Sequelize(process.env.DATABASE_NAME as string, process.env.DATABASE_USERNAME as string, process.env.DATABASE_PASSWORD as string,
     {
         dialect: 'mysql',
-        host: 'aws.connect.psdb.cloud',
+        host: process.env.DATABASE_HOST,
         dialectOptions: {
             ssl: {
                 rejectUnauthorized: true,
