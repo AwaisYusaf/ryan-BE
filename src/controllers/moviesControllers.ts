@@ -19,14 +19,69 @@ export async function GetMovieByID(req: Request, res: Response) {
     const { id } = req.params;
     try {
         const movie = await Movie.findOne({ where: { id } });
-        res.json({ status: "success", message: 'Movie retrieved successfully', movie });
+        return res.json({ status: "success", message: 'Movie retrieved successfully', movie });
     } catch (e) {
-        res.status(500).json({ error: 'An error occurred while retrieving movie' });
+        return res.status(500).json({ error: 'An error occurred while retrieving movie' });
+    }
+}
+
+
+
+
+function sortByNameAscending(arr: any[]) {
+    arr.sort((a, b) => {
+        if (a.name.toLowerCase()[0] > b.name.toLowerCase()[0]) {
+            return -1;
+        }
+        return 1;
+    });
+}
+function sortByNameDescending(arr: any[]) {
+    arr.sort((a, b) => {
+        if (a.name.toLowerCase()[0] < b.name.toLowerCase()[0]) {
+            return -1;
+        }
+        return 1;
+    });
+}
+
+function sortByRatingAscending(arr: any[]) {
+    arr.sort((a, b) => {
+        if (a.rating < b.rating) {
+            return -1;
+        }
+        return 1;
+    });
+}
+
+function sortByRatingDescending(arr: any[]) {
+    arr.sort((a, b) => {
+        if (a.rating > b.rating) {
+            return -1;
+        }
+        return 1;
+    });
+}
+
+function sortMovies(arr: any[], sort?: string) {
+    if (!sort) {
+        return;
+    }
+    if (sort === 'name_asc') {
+        sortByNameAscending(arr);
+    } else if (sort === 'name_desc') {
+        sortByNameDescending(arr);
+    } else if (sort === 'rating_asc') {
+        sortByRatingAscending(arr);
+    } else if (sort === 'rating_desc') {
+        sortByRatingDescending(arr);
     }
 }
 
 export async function GetMovies(req: Request, res: Response) {
-    const { q, page } = req.query;
+    const { q, page, sort } = req.query;
+    console.log("SORT=", sort)
+
     if (q) {
         try {
             const movies = await Movie.findAll({
@@ -36,32 +91,39 @@ export async function GetMovies(req: Request, res: Response) {
                     }
                 }
             });
+            //Update Movie to Get the Latest Movie First
+            movies.reverse();
 
             const currentPage = page ? parseInt(page as string) - 1 : 0;
             const perPage = 10;
             if (movies.length < perPage) {
+                sortMovies(movies, sort as string);
                 res.json({ status: "success", message: 'Movies retrieved successfully', movies });
             }
             const pageItems = movies.slice(currentPage * 10, currentPage * 10 + 10);
-            res.json({ status: "success", message: 'Movies retrieved successfully', movies: pageItems });
+            sortMovies(pageItems, sort as string);
+            return res.json({ status: "success", message: 'Movies retrieved successfully', movies: pageItems });
 
         } catch (e) {
-            res.status(500).json({ error: 'An error occurred while retrieving movies', movies: [] });
+            return res.status(500).json({ error: 'An error occurred while retrieving movies', movies: [] });
         }
-        return;
     }
     try {
         const movies = await Movie.findAll();
+        //Update Movie to Get the Latest Movie First
+        movies.reverse();
         const currentPage = page ? parseInt(page as string) - 1 : 0;
         const perPage = 10;
         if (movies.length < perPage) {
-            res.json({ status: "success", message: 'Movies retrieved successfully', movies });
+            sortMovies(movies, sort as string);
+            return res.json({ status: "success", message: 'Movies retrieved successfully', movies });
         }
         const pageItems = movies.slice(currentPage * 10, currentPage * 10 + 10);
-        res.json({ status: "success", message: 'Movies retrieved successfully', movies: pageItems });
+        sortMovies(pageItems, sort as string);
+        return res.json({ status: "success", message: 'Movies retrieved successfully', movies: pageItems });
 
     } catch (e) {
-        res.status(500).json({ error: 'An error occurred while retrieving movies', movies: [] });
+        return res.status(500).json({ error: 'An error occurred while retrieving movies', movies: [] });
     }
 }
 
@@ -70,14 +132,17 @@ export async function AddMovie(req: Request, res: any) {
     const { name, duration, rating } = req.body;
     try {
         const movie = await Movie.create({ name, duration, rating });
-        res.json({ status: "success", message: 'Movie added successfully', movie });
+        return res.json({ status: "success", message: 'Movie added successfully', movie });
     } catch (e) {
-        res.status(500).json({ error: 'An error occurred while adding the movie' });
+        return res.status(500).json({ error: 'An error occurred while adding the movie' });
     }
 }
 
 export async function PrepareCSV(req: Request, res: Response) {
     const movies = await Movie.findAll();
+    //Update Movie to Get the Latest Movie First
+    movies.reverse();
+
     // Convert data to CSV format
     let csvContent = 'ID, Name, Duration, Rating\n';
     movies.forEach((row: any) => {
@@ -88,7 +153,7 @@ export async function PrepareCSV(req: Request, res: Response) {
     fs.writeFileSync('data.csv', csvContent);
 
     // Serve the file for download
-    res.download('data.csv', 'data.csv', (err) => {
+    return res.download('data.csv', 'data.csv', (err) => {
         if (err) {
             res.status(500).send('Error while downloading the file.');
         }
@@ -97,6 +162,8 @@ export async function PrepareCSV(req: Request, res: Response) {
 
 export async function PrepareTXT(req: Request, res: Response) {
     const movies = await Movie.findAll();
+    //Update Movie to Get the Latest Movie First
+    movies.reverse();
     // Convert data to CSV format
     let csvContent = 'ID, Name, Duration, Rating\n';
     movies.forEach((row: any) => {
@@ -107,9 +174,9 @@ export async function PrepareTXT(req: Request, res: Response) {
     fs.writeFileSync('data.txt', csvContent);
 
     // Serve the file for download
-    res.download('data.txt', 'data.txt', (err) => {
+    return res.download('data.txt', 'data.txt', (err) => {
         if (err) {
-            res.status(500).send('Error while downloading the file.');
+            return res.status(500).send('Error while downloading the file.');
         }
     });
 }
@@ -118,16 +185,22 @@ export async function EditMovie(req: Request, res: Response) {
     const { id, movie } = req.body;
     try {
         const result = Movie.update({ name: movie.name, duration: movie.duration, rating: movie.rating }, { where: { id } });
-        res.json({ status: "success", message: 'Movie updated successfully', result });
+        return res.json({ status: "success", message: 'Movie updated successfully', result });
     } catch (e) {
-        res.status(500).json({ error: 'An error occurred while updating the movie' });
+        return res.status(500).json({ error: 'An error occurred while updating the movie' });
     }
 
 }
 
 
 export async function DeleteMovie(req: Request, res: Response) {
-
+    const { id } = req.params;
+    try {
+        await Movie.destroy({ where: { id } });
+        return res.status(200).json({ status: "success", message: 'Movie deleted successfully' });
+    } catch (e) {
+        return res.status(500).json({ error: 'An error occurred while retrieving movie' });
+    }
 }
 
 
